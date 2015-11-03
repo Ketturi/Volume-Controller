@@ -1,72 +1,66 @@
-/*Code for driving motorized potentionmeter in amplifier.
- *Rotating rotary encoder moves motor in small steps and
- *sets led brightness to volume level.
- *
- *In future this will read ADC 0V..5.65V to determine actual
- *volume level. (Motor should stop when voltage 0.00 or 5.65).
+/*Code for driving motorized potentiometer in amplifier.
+ *Motorized potentiometer is connected trough H-bridge
+ *to arduino. Pulse encoder is connected INT0 and INT1
+ *interupts.
  *
  *Ketturi Fox 2015
  */
 
 #include <Encoder.h>
-Encoder myEnc(2, 3); //Rotary encoder connected in pin 2 and 3 (INT0&INT1)
+Encoder myEnc(2, 3);      // Rotary encoder connected in pin 2 and 3 (INT0&INT1)
 
-int led1 = 5;           
-int led2 = 6; 
-int led3 = 10; 
-int led4 = 11; 
+const int vol_up = 8;     // H-Bridge input pins
+const int vol_dn = 9;     // If motor turn in wrong direction, swap these
+const int volumeRef = A0; // Analog input for position feedback (0-5V)
 
-int vol_up = 8; //if motor turn in wrong direction, swap these
-int vol_dn = 9;
-int m_delay = 5; //5ms min length, 50ms max length of drive pulses. Motor turns fast on continuous drive!
+const int speed_max = 100; // Max value for accumulated speed
+const int LOOP_DELAY = 5;  // Varying these two, adjust feel can be made pleasant
+long vspeed = 0;
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Encoder position debug:");
-
-    pinMode(led1, OUTPUT); //set some outputs
-    pinMode(led2, OUTPUT);
-    pinMode(led3, OUTPUT);
-    pinMode(led4, OUTPUT);
-    pinMode(vol_up, OUTPUT);
-    pinMode(vol_dn, OUTPUT);
+//Serial.begin(9600);
+  pinMode(vol_up, OUTPUT);
+  pinMode(vol_dn, OUTPUT);
 }
 
-long oldPosition  = -999;
 
 void loop() {
-  long newPosition = myEnc.read(); //myEnc.read() Returns the accumulated position. This number can be positive or negative.
-   if (newPosition >= 255) { myEnc.write(255); } //If position goes out of range, resets it. (255 volume steps)
-   if (newPosition <= 0)   { myEnc.write(0);   } 
-   
-   if (newPosition != oldPosition) {
-      if (newPosition > oldPosition) { DriveMotor(1,m_delay); } //increase volume
-      if (newPosition < oldPosition) { DriveMotor(0,m_delay); } //decrease volume
-   
-   oldPosition = newPosition;
-   SetLedBrightness(newPosition);
-   Serial.println(newPosition);
-  }
+    // Read change since last call and reset the reading.
+    long delta = myEnc.read();
+    vspeed += delta;
+    myEnc.write(0);
 
+    // Limit accumulated speed.
+    if (vspeed > speed_max) vspeed = speed_max;
+    else if (vspeed < -speed_max) vspeed = -speed_max; 
+    
+    // Stop motor at ends, there will be some latency. (Mechanical stoper in potentiometer)
+    if (analogRead(volumeRef) < 10 && vspeed < 0) {
+        vspeed = 0;
+    } else if (analogRead(volumeRef) > 1020 && vspeed > 0) {
+        vspeed = 0;
+    }
+
+    if (vspeed > 0) {
+        digitalWrite(vol_dn, LOW);
+        delay(LOOP_DELAY);
+        digitalWrite(vol_up, HIGH);
+    } else if (vspeed < 0) {
+        digitalWrite(vol_up, LOW);
+        delay(LOOP_DELAY);
+        digitalWrite(vol_dn, HIGH);
+    } else {
+        digitalWrite(vol_up, LOW);
+        digitalWrite(vol_dn, LOW);
+        delay(LOOP_DELAY);        
+    }
+
+    if (vspeed > 0) vspeed--;
+    else if (vspeed < 0) vspeed++;
+
+//   Serial.print(vspeed);
+//   Serial.print(" ");
+//   Serial.println(analogRead(volumeRef));
 }
 
-void DriveMotor(int dir, int motor_delay){ //Turn volume motor 1=CW, 0=CCW for given timee
-  if (dir=1){
-    digitalWrite(vol_up, HIGH); //turn motor drive for n milliseconds
-    delay(motor_delay);
-    digitalWrite(vol_up, LOW);
-  }
-  if (dir=0){
-    digitalWrite(vol_dn, HIGH);
-    delay(motor_delay);
-    digitalWrite(vol_dn, LOW);
-  }
-}
-
-void SetLedBrightness(int pwm-level){
-  analogWrite(led1, pwm-level);
-  analogWrite(led2, pwm-level);
-  analogWrite(led3, pwm-level);
-  analogWrite(led4, pwm-level);
-}
 
