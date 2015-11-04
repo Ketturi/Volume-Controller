@@ -3,10 +3,11 @@
  *to arduino. Pulse encoder is connected INT0 and INT1
  *interupts.
  *
+ *
  *Ketturi Fox 2015
  */
 
-#include <Encoder.h>
+#include <Encoder.h>      //https://www.pjrc.com/teensy/td_libs_Encoder.html
 Encoder myEnc(2, 3);      // Rotary encoder connected in pin 2 and 3 (INT0&INT1)
 
 const int vol_up = 8;     // H-Bridge input pins
@@ -14,7 +15,7 @@ const int vol_dn = 9;     // If motor turn in wrong direction, swap these
 const int volumeRef = A0; // Analog input for position feedback (0-5V)
 
 const int speed_max = 100; // Max value for accumulated speed
-const int LOOP_DELAY = 5;  // Varying these two, adjust feel can be made pleasant
+const int LOOP_DELAY = 10;  // Varying these two, adjust feel can be made pleasant
 long vspeed = 0;
 
 void setup() {
